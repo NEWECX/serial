@@ -1,29 +1,12 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.10)
 project(serial)
 
-# Find catkin
-find_package(catkin REQUIRED)
+find_package(ament_cmake REQUIRED)
+include(GNUInstallDirs)
 
 if(APPLE)
     find_library(IOKIT_LIBRARY IOKit)
     find_library(FOUNDATION_LIBRARY Foundation)
-endif()
-
-if(UNIX AND NOT APPLE)
-    # If Linux, add rt and pthread
-    set(rt_LIBRARIES rt)
-    set(pthread_LIBRARIES pthread)
-    catkin_package(
-        LIBRARIES ${PROJECT_NAME}
-        INCLUDE_DIRS include
-        DEPENDS rt pthread
-    )
-else()
-    # Otherwise normal call
-    catkin_package(
-        LIBRARIES ${PROJECT_NAME}
-        INCLUDE_DIRS include
-    )
 endif()
 
 ## Sources
@@ -48,6 +31,11 @@ endif()
 
 ## Add serial library
 add_library(${PROJECT_NAME} ${serial_SRCS})
+set_target_properties(${PROJECT_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(${PROJECT_NAME} PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 if(APPLE)
     target_link_libraries(${PROJECT_NAME} ${FOUNDATION_LIBRARY} ${IOKIT_LIBRARY})
 elseif(UNIX)
@@ -61,20 +49,26 @@ add_executable(serial_example examples/serial_example.cc)
 add_dependencies(serial_example ${PROJECT_NAME})
 target_link_libraries(serial_example ${PROJECT_NAME})
 
-## Include headers
-include_directories(include)
-
 ## Install executable
 install(TARGETS ${PROJECT_NAME}
-    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    EXPORT serial_targets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
 ## Install headers
 install(FILES include/serial/serial.h include/serial/v8stdint.h
-  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}/serial)
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/serial)
 
 ## Tests
-if(CATKIN_ENABLE_TESTING)
+if(BUILD_TESTING)
+    find_package(ament_cmake_gtest REQUIRED)
+    find_package(Boost REQUIRED)
     add_subdirectory(tests)
 endif()
+
+ament_export_targets(serial_targets HAS_LIBRARY_TARGET)
+ament_export_include_directories(${CMAKE_INSTALL_INCLUDEDIR})
+ament_export_libraries(${PROJECT_NAME})
+ament_package()
